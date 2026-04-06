@@ -13,6 +13,7 @@ from research_agent.core.models import (
     ToolName,
     ToolTrace,
 )
+from research_agent.core.orchestrator import ResearchOrchestrator
 
 __all__ = [
     "ResearchRun",
@@ -26,4 +27,5 @@ __all__ = [
     "RunStatus",
     "MemoryType",
     "ToolName",
+    "ResearchOrchestrator",
 ]
