@@ -297,8 +297,8 @@ Return ONLY valid JSON."""
                 
                 memory = Memory(
                     memory_type=MemoryType[memory_type],
-                    description=learning.get("text", ""),
-                    source_idea_id=idea.id if idea else None,
+                    summary=learning.get("text", ""),
+                    related_ideas=[idea.id] if idea else [],
                     persist=False,
                 )
                 memories.append(memory)

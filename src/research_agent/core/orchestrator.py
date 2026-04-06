@@ -141,9 +141,18 @@ class ResearchOrchestrator:
         # TODO: Query memory index for context (requires memory system)
         memory_context: Dict[str, Any] = {}
         
-        # TODO: Call LLM to generate ideas (requires LLM wrapper)
-        # For now, generate a simple seed idea from exploration area
-        new_ideas = self._generate_seed_ideas()
+        # Call LLM to generate ideas
+        if self.llm_wrapper:
+            exploration_context = f"Explore codebase in {self.run.area.roots}"
+            new_ideas = await self.llm_wrapper.generate_ideas(
+                exploration_context=exploration_context,
+                prior_findings=self.run.all_findings,
+                memory_context=memory_context,
+                max_to_generate=max_to_generate,
+            )
+        else:
+            # Fallback: generate simple seed ideas
+            new_ideas = self._generate_seed_ideas()
         
         if new_ideas:
             self.run.ideas.extend(new_ideas)
@@ -171,9 +180,20 @@ class ResearchOrchestrator:
         
         logger.info(f"Processing {len(self.context.current_batch)} ideas")
         
-        # TODO: Call LLM to plan tool calls for batch (requires LLM wrapper)
-        # For now, generate simple tool calls for each idea
-        tool_calls = self._generate_tool_calls_for_batch(self.context.current_batch)
+        # Call LLM to plan tool calls for batch (requires LLM wrapper)
+        if self.llm_wrapper:
+            tool_calls = await self.llm_wrapper.plan_exploration(
+                ideas=self.context.current_batch,
+                prior_tool_traces=self.run.tool_traces,
+                remaining_budget={
+                    "token_budget": self.run.remaining_tokens,
+                    "tool_call_budget": self.run.remaining_tool_calls,
+                    "wall_clock_budget": self.run.remaining_time.total_seconds() if self.run.remaining_time else None,
+                },
+            )
+        else:
+            # Fallback: generate simple tool calls
+            tool_calls = self._generate_tool_calls_for_batch(self.context.current_batch)
         
         # Execute tools
         for tool_call in tool_calls:
@@ -208,8 +228,12 @@ class ResearchOrchestrator:
         
         # Micro-learning: Extract from each trace
         for trace in self.context.tool_traces_in_cycle:
-            if trace.success:
-                micro_memories = await self._extract_micro_learnings(trace)
+            if trace.success and self.llm_wrapper:
+                micro_memories = await self.llm_wrapper.extract_learnings(
+                    tool_trace=trace,
+                    idea=self.run.idea_by_id(trace.idea_id) if trace.idea_id else None,
+                    existing_patterns=[],  # TODO: pass existing patterns
+                )
                 self.context.memories_created.extend(micro_memories)
         
         logger.info(f"Extracted {len(self.context.memories_created)} micro-learnings")
@@ -221,18 +245,33 @@ class ResearchOrchestrator:
             if not idea_traces:
                 continue
             
-            # TODO: Call LLM to synthesize findings (requires LLM wrapper)
-            findings = self._synthesize_findings_for_idea(idea, idea_traces)
+            # Call LLM to synthesize findings
+            if self.llm_wrapper:
+                findings = await self.llm_wrapper.synthesize_findings(
+                    idea=idea,
+                    tool_traces=idea_traces,
+                    prior_findings=idea.findings,
+                )
+            else:
+                findings = self._synthesize_findings_for_idea(idea, idea_traces)
             if findings:
                 idea.findings.extend(findings)
                 logger.debug(f"Synthesized {len(findings)} findings for idea {idea.id}")
             
             # Extract idea-level memories
-            idea_memories = await self._extract_idea_learnings(idea, idea_traces)
-            self.context.memories_created.extend(idea_memories)
+            if self.llm_wrapper:
+                idea_memories = await self.llm_wrapper.extract_learnings(
+                    tool_trace=idea_traces[0],  # Use first trace as representative
+                    idea=idea,
+                    existing_patterns=[],  # TODO: pass existing patterns
+                )
+                self.context.memories_created.extend(idea_memories)
             
-            # TODO: Decide next action for idea (requires LLM wrapper)
-            next_action = self._decide_next_action_for_idea(idea)
+            # Decide next action for idea
+            if self.llm_wrapper:
+                next_action = await self.llm_wrapper.decide_next_action(idea, idea.findings)
+            else:
+                next_action = self._decide_next_action_for_idea(idea)
             self._apply_decision(idea, next_action)
     
     async def _memorize_phase(self) -> None:
