@@ -320,7 +320,7 @@ class ResearchOrchestrator:
             idea = ExploratoryIdea(
                 id=f"seed-{idx}",
                 title=seed,
-                description=f"User-provided seed idea: {seed}",
+                hypothesis=f"User-provided seed idea: {seed}",
                 exploration_area=self.run.area,
                 parent_id=None,
                 priority=5,  # High priority for user seeds
@@ -341,7 +341,7 @@ class ResearchOrchestrator:
                 idea = ExploratoryIdea(
                     id=f"default-{idx}",
                     title=title,
-                    description=title,
+                    hypothesis=title,
                     exploration_area=self.run.area,
                     parent_id=None,
                     priority=3,
