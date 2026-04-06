@@ -46,16 +46,20 @@ class MemoryIndex:
             True if added, False if duplicate/skipped
         """
         if check_duplicate and self._is_duplicate(memory):
-            logger.debug(f"Skipping duplicate memory: {memory.description[:50]}")
+            text = memory.summary + (memory.description or "")
+            logger.debug(f"Skipping duplicate memory: {text[:50]}")
             return False
         
         # Store in index
         self.memories[memory.id] = memory
         self.by_type[memory.memory_type].append(memory.id)
-        if memory.source_idea_id:
-            self.by_source[memory.source_idea_id].append(memory.id)
+        for idea_id in memory.related_ideas:
+            if idea_id not in self.by_source:
+                self.by_source[idea_id] = []
+            self.by_source[idea_id].append(memory.id)
         
-        logger.debug(f"Added memory: {memory.description[:50]}")
+        text = memory.summary + (memory.description or "")
+        logger.debug(f"Added memory: {text[:50]}")
         return True
     
     def query(
@@ -118,8 +122,9 @@ class MemoryIndex:
         return list(self.memories.values())
     
     def _is_duplicate(self, memory: Memory) -> bool:
-        """Check if memory is a likely duplicate based on description."""
-        desc_hash = hash(memory.description[:100])
+        """Check if memory is a likely duplicate based on summary."""
+        text = memory.summary + (memory.description or "")
+        desc_hash = hash(text[:100])
         if desc_hash in self.deduplicated_hashes:
             return True
         
