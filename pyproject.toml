@@ -71,7 +71,7 @@ sphinx = "^7.2"
 sphinx-rtd-theme = "^2.0"
 
 [tool.poetry.scripts]
-research-agent = "research_agent.main:cli"
+research-agent = "research_agent.main:app"
 
 [build-system]
 requires = ["poetry-core"]
